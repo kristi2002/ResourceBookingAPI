@@ -1,117 +1,178 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ResourceBooking.Data;
+using ResourceBooking.Dto;
 using ResourceBooking.Dtos;
-using ResourceBooking.Interfaces;
 using ResourceBooking.Models;
+using Swashbuckle.AspNetCore.Annotations;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace ResourceBooking.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/users")]
     [ApiController]
-    public class BookingController : ControllerBase
+    public class UserController : ControllerBase
     {
-        private readonly IBookingRepository _bookingRepository;
-        private readonly IResourceRepository _resourceRepository;
-        private readonly IUserRepository _userRepository;
+        private readonly DataContext _context;
 
-        public BookingController(IBookingRepository bookingRepository, IResourceRepository resourceRepository, IUserRepository userRepository)
+        public UserController(DataContext context)
         {
-            _bookingRepository = bookingRepository;
-            _resourceRepository = resourceRepository;
-            _userRepository = userRepository;
+            _context = context;
         }
 
+        // GET: api/users
         [HttpGet]
-        public async Task<IActionResult> GetBookings()
+        [SwaggerOperation(Summary = "List of Users")]
+        public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers()
         {
-            var bookings = await _bookingRepository.GetBookingsAsync();
-            var bookingsToReturn = bookings.Select(b => new BookingDto
+            try
             {
-                BookingId = b.BookingId,
-                ResourceId = b.ResourceId,
-                UserId = b.UserId,
-                DataInizio = b.StartDate,
-                DataFine = b.EndDate
-            });
-            return Ok(bookingsToReturn);
-        }
+                var users = await _context.Users
+                    .Select(u => new UserDto
+                    {
+                        UserId = u.UserId,
+                        Email = u.Email,
+                        Nome = u.Name,
+                        Cognome = u.LastName
+                    })
+                    .ToListAsync();
 
-        [HttpGet("{id}", Name = "GetBooking")]
-        public async Task<IActionResult> GetBooking(int id)
-        {
-            var booking = await _bookingRepository.GetBookingByIdAsync(id);
-            if (booking == null)
-                return NotFound();
-
-            var bookingToReturn = new BookingDto
-            {
-                BookingId = booking.BookingId,
-                ResourceId = booking.ResourceId,
-                UserId = booking.UserId,
-                DataInizio = booking.StartDate,
-                DataFine = booking.EndDate
-            };
-
-            return Ok(bookingToReturn);
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> CreateBooking(BookingForCreationDto bookingForCreation)
-        {
-            if (!await _resourceRepository.ResourceExistsAsync(bookingForCreation.ResourceId) ||
-                !await _userRepository.UserExistsAsync(bookingForCreation.UserId))
-            {
-                return BadRequest("Invalid ResourceId or UserId");
+                return Ok(users);
             }
-
-            var booking = new Booking
+            catch (Exception ex)
             {
-                ResourceId = bookingForCreation.ResourceId,
-                UserId = bookingForCreation.UserId,
-                StartDate = bookingForCreation.DataInizio,
-                EndDate = bookingForCreation.DataFine
-            };
-
-            await _bookingRepository.AddBookingAsync(booking);
-            if (await _bookingRepository.SaveAsync())
-                return CreatedAtRoute("GetBooking", new { id = booking.BookingId }, booking);
-
-            return BadRequest("Error creating booking");
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateBooking(int id, BookingForCreationDto bookingForUpdate)
+        // GET: api/users/{id}
+        [HttpGet("{id}")]
+        [SwaggerOperation(Summary = "Get User by ID")]
+        public async Task<ActionResult<UserDto>> GetUser(int id)
         {
-            var bookingFromRepo = await _bookingRepository.GetBookingByIdAsync(id);
-            if (bookingFromRepo == null)
-                return NotFound();
+            try
+            {
+                var user = await _context.Users.FindAsync(id);
 
-            bookingFromRepo.ResourceId = bookingForUpdate.ResourceId;
-            bookingFromRepo.UserId = bookingForUpdate.UserId;
-            bookingFromRepo.StartDate = bookingForUpdate.DataInizio;
-            bookingFromRepo.EndDate = bookingForUpdate.DataFine;
+                if (user == null)
+                {
+                    return NotFound("User not found.");
+                }
 
-            await _bookingRepository.UpdateBookingAsync(bookingFromRepo);
-            if (await _bookingRepository.SaveAsync())
-                return NoContent();
+                var userDto = new UserDto
+                {
+                    UserId = user.UserId,
+                    Email = user.Email,
+                    Nome = user.Name,
+                    Cognome = user.LastName
+                };
 
-            return BadRequest("Error updating booking");
+                return Ok(userDto);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
 
+        // POST: api/users
+        [HttpPost]
+        [SwaggerOperation(Summary = "Add User")]
+        public async Task<ActionResult<UserDto>> AddUser(UserForCreationDto userForCreationDto)
+        {
+            try
+            {
+                var user = new User
+                {
+                    Email = userForCreationDto.Email,
+                    Name = userForCreationDto.Nome,
+                    LastName = userForCreationDto.Cognome,
+                    Password = userForCreationDto.Password // Note: Ensure to hash the password before saving in a real application
+                };
+
+                _context.Users.Add(user);
+                await _context.SaveChangesAsync();
+
+                var userDto = new UserDto
+                {
+                    UserId = user.UserId,
+                    Email = user.Email,
+                    Nome = user.Name,
+                    Cognome = user.LastName
+                };
+
+                return CreatedAtAction(nameof(GetUser), new { id = user.UserId }, userDto);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        // PUT: api/users
+        [HttpPut]
+        [SwaggerOperation(Summary = "Update User")]
+        public async Task<ActionResult<UserDto>> UpdateUser(UserForUpdateDto userForUpdateDto)
+        {
+            try
+            {
+                var user = await _context.Users.FindAsync(userForUpdateDto.UserId);
+
+                if (user == null)
+                {
+                    return NotFound("User not found.");
+                }
+
+                user.Email = userForUpdateDto.Email;
+                user.Name = userForUpdateDto.Name;
+                user.LastName = userForUpdateDto.LastName;
+                user.Password = userForUpdateDto.Password; // Note: Ensure to hash the password before saving in a real application
+
+                _context.Users.Update(user);
+                await _context.SaveChangesAsync();
+
+                var userDto = new UserDto
+                {
+                    UserId = user.UserId,
+                    Email = user.Email,
+                    Nome = user.Name,
+                    Cognome = user.LastName
+                };
+
+                return Ok(userDto);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        // DELETE: api/users/{id}
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteBooking(int id)
+        [SwaggerOperation(Summary = "Delete User")]
+        public async Task<IActionResult> DeleteUser(int id)
         {
-            var bookingFromRepo = await _bookingRepository.GetBookingByIdAsync(id);
-            if (bookingFromRepo == null)
-                return NotFound();
+            try
+            {
+                var user = await _context.Users.FindAsync(id);
 
-            await _bookingRepository.DeleteBookingAsync(bookingFromRepo);
-            if (await _bookingRepository.SaveAsync())
+                if (user == null)
+                {
+                    return NotFound("User not found.");
+                }
+
+                _context.Users.Remove(user);
+                await _context.SaveChangesAsync();
+
                 return NoContent();
-
-            return BadRequest("Error deleting booking");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
     }
 }

@@ -21,34 +21,36 @@ namespace ResourceBooking.Repositories
             return await _context.Bookings.Include(b => b.Resource).Include(b => b.User).ToListAsync();
         }
 
-        public async Task<Booking> GetBookingByIdAsync(int id)
+        public async Task<Booking> GetBookingByIdAsync(int bookingId)
         {
-            return await _context.Bookings.Include(b => b.Resource).Include(b => b.User).SingleOrDefaultAsync(b => b.BookingId == id);
+            return await _context.Bookings.Include(b => b.Resource).Include(b => b.User).FirstOrDefaultAsync(b => b.BookingId == bookingId);
         }
 
-        public async Task AddBookingAsync(Booking booking)
+        public async Task<Booking> CreateBookingAsync(Booking booking)
         {
-            await _context.Bookings.AddAsync(booking);
+            _context.Bookings.Add(booking);
+            await _context.SaveChangesAsync();
+            return booking;
         }
 
-        public async Task UpdateBookingAsync(Booking booking)
+        public async Task<Booking> UpdateBookingAsync(Booking booking)
         {
-            _context.Entry(booking).State = EntityState.Modified;
+            _context.Bookings.Update(booking);
+            await _context.SaveChangesAsync();
+            return booking;
         }
 
-        public async Task DeleteBookingAsync(Booking booking)
+        public async Task<bool> DeleteBookingAsync(int bookingId)
         {
+            var booking = await _context.Bookings.FindAsync(bookingId);
+            if (booking == null)
+            {
+                return false;
+            }
+
             _context.Bookings.Remove(booking);
-        }
-
-        public async Task<IEnumerable<Booking>> GetBookingsByResourceIdAsync(int resourceId)
-        {
-            return await _context.Bookings.Where(b => b.ResourceId == resourceId).ToListAsync();
-        }
-
-        public async Task<bool> SaveAsync()
-        {
-            return await _context.SaveChangesAsync() > 0;
+            await _context.SaveChangesAsync();
+            return true;
         }
     }
 }

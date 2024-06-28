@@ -1,8 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using ResourceBooking.Dtos;
-using ResourceBooking.Interfaces;
 using ResourceBooking.Models;
-using System.Collections.Generic;
+using ResourceBooking.Repositories;
+using ResourceBooking.Services;
+using Swashbuckle.AspNetCore.Annotations;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -10,96 +11,107 @@ namespace ResourceBooking.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class UserController : ControllerBase
+    public class UsersController : ControllerBase
     {
         private readonly IUserRepository _userRepository;
+        private readonly TokenService _tokenService;
 
-        public UserController(IUserRepository userRepository)
+        public UsersController(IUserRepository userRepository, TokenService tokenService)
         {
             _userRepository = userRepository;
+            _tokenService = tokenService;
         }
 
-        [HttpGet]
-        public async Task<IActionResult> GetUsers()
-        {
-            var users = await _userRepository.GetUsersAsync();
-            var usersToReturn = users.Select(u => new UserDto
-            {
-                UserId = u.UserId,
-                Email = u.Email,
-                Nome = u.Name,
-                Cognome = u.LastName
-            });
-            return Ok(usersToReturn);
-        }
-
-        [HttpGet("{id}", Name = "GetUser")]
-        public async Task<IActionResult> GetUser(int id)
-        {
-            var user = await _userRepository.GetUserByIdAsync(id);
-            if (user == null)
-                return NotFound();
-
-            var userToReturn = new UserDto
-            {
-                UserId = user.UserId,
-                Email = user.Email,
-                Nome = user.Name,
-                Cognome = user.LastName
-            };
-
-            return Ok(userToReturn);
-        }
-
+        /// <summary>
+        /// Register a new user.
+        /// </summary>
+        /// <param name="userForCreationDto">User data transfer object to create a new user</param>
+        /// <returns>Created user object</returns>
         [HttpPost]
-        public async Task<IActionResult> CreateUser(UserForCreationDto userForCreation)
+        [SwaggerOperation(Summary = "Add new User")]
+        public async Task<ActionResult<User>> CreateUser(UserForCreationDto userForCreationDto)
         {
+            // Validate the incoming user model
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            // Check if the email already exists
+            var existingUser = await _userRepository.GetUsersAsync();
+            if (existingUser.Any(u => u.Email == userForCreationDto.Email))
+            {
+                return Conflict("Email already exists.");
+            }
+
+            // Map UserForCreationDto to User model
             var user = new User
             {
-                Email = userForCreation.Email,
-                Name = userForCreation.Nome,
-                LastName = userForCreation.Cognome,
-                Password = userForCreation.Password
+                Email = userForCreationDto.Email,
+                Name = userForCreationDto.Nome,
+                LastName = userForCreationDto.Cognome,
+                Password = userForCreationDto.Password
             };
 
-            await _userRepository.AddUserAsync(user);
-            if (await _userRepository.SaveAsync())
-                return CreatedAtRoute("GetUser", new { id = user.UserId }, user);
-
-            return BadRequest("Error creating user");
+            // Create the new user
+            var createdUser = await _userRepository.CreateUserAsync(user);
+            return CreatedAtAction(nameof(GetUserById), new { userId = createdUser.UserId }, createdUser);
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateUser(int id, UserForCreationDto userForUpdate)
+        /// <summary>
+        /// Get a user by ID.
+        /// </summary>
+        /// <param name="userId">User ID</param>
+        /// <returns>User object</returns>
+        [HttpGet("{userId}")]
+        [SwaggerOperation(Summary = "Get User by Id")]
+        public async Task<ActionResult<User>> GetUserById(int userId)
         {
-            var userFromRepo = await _userRepository.GetUserByIdAsync(id);
-            if (userFromRepo == null)
+            var user = await _userRepository.GetUserByIdAsync(userId);
+            if (user == null)
+            {
                 return NotFound();
+            }
 
-            userFromRepo.Email = userForUpdate.Email;
-            userFromRepo.Name = userForUpdate.Nome;
-            userFromRepo.LastName = userForUpdate.Cognome;
-            userFromRepo.Password = userForUpdate.Password;
-
-            await _userRepository.UpdateUserAsync(userFromRepo);
-            if (await _userRepository.SaveAsync())
-                return NoContent();
-
-            return BadRequest("Error updating user");
+            return Ok(user);
         }
 
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteUser(int id)
+        /// <summary>
+        /// Authenticate a user and get a JWT token.
+        /// </summary>
+        /// <param name="loginDto">Login data transfer object</param>
+        /// <returns>JWT token</returns>
+        [HttpPost("authenticate")]
+        [SwaggerOperation(Summary = "Authenticates User")]
+        public async Task<ActionResult<string>> Authenticate(LoginDto loginDto)
         {
-            var userFromRepo = await _userRepository.GetUserByIdAsync(id);
-            if (userFromRepo == null)
+            var user = await _userRepository.AuthenticateUserAsync(loginDto.Email, loginDto.Password);
+            if (user == null)
+            {
+                return Unauthorized("Invalid email or password.");
+            }
+
+            var token = _tokenService.GenerateToken(user);
+            return Ok(token);
+        }
+
+        /// <summary>
+        /// Delete a user by ID.
+        /// </summary>
+        /// <param name="userId">User ID</param>
+        /// <returns>No content</returns>
+        [HttpDelete("{userId}")]
+        [SwaggerOperation(Summary = "Delete User by Id")]
+        public async Task<IActionResult> DeleteUser(int userId)
+        {
+            var user = await _userRepository.GetUserByIdAsync(userId);
+            if (user == null)
+            {
                 return NotFound();
+            }
 
-            await _userRepository.DeleteUserAsync(userFromRepo);
-            if (await _userRepository.SaveAsync())
-                return NoContent();
-
-            return BadRequest("Error deleting user");
+            await _userRepository.DeleteUserAsync(user);
+            return NoContent();
         }
     }
 }

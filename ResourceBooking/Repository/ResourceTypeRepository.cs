@@ -21,29 +21,36 @@ namespace ResourceBooking.Repositories
             return await _context.ResourceTypes.ToListAsync();
         }
 
-        public async Task<ResourceType> GetResourceTypeByIdAsync(int id)
+        public async Task<ResourceType> GetResourceTypeByIdAsync(int resourceTypeId)
         {
-            return await _context.ResourceTypes.FindAsync(id);
+            return await _context.ResourceTypes.FindAsync(resourceTypeId);
         }
 
-        public async Task AddResourceTypeAsync(ResourceType resourceType)
+        public async Task<ResourceType> CreateResourceTypeAsync(ResourceType resourceType)
         {
-            await _context.ResourceTypes.AddAsync(resourceType);
+            _context.ResourceTypes.Add(resourceType);
+            await _context.SaveChangesAsync();
+            return resourceType;
         }
 
-        public async Task UpdateResourceTypeAsync(ResourceType resourceType)
+        public async Task<ResourceType> UpdateResourceTypeAsync(ResourceType resourceType)
         {
-            _context.Entry(resourceType).State = EntityState.Modified;
+            _context.ResourceTypes.Update(resourceType);
+            await _context.SaveChangesAsync();
+            return resourceType;
         }
 
-        public async Task DeleteResourceTypeAsync(ResourceType resourceType)
+        public async Task<bool> DeleteResourceTypeAsync(int resourceTypeId)
         {
+            var resourceType = await _context.ResourceTypes.FindAsync(resourceTypeId);
+            if (resourceType == null)
+            {
+                return false;
+            }
+
             _context.ResourceTypes.Remove(resourceType);
-        }
-
-        public async Task<bool> SaveAsync()
-        {
-            return await _context.SaveChangesAsync() > 0;
+            await _context.SaveChangesAsync();
+            return true;
         }
     }
 }

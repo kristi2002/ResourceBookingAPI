@@ -1,14 +1,17 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using ResourceBooking.Dto;
 using ResourceBooking.Dtos;
 using ResourceBooking.Interfaces;
 using ResourceBooking.Models;
+using Swashbuckle.AspNetCore.Annotations;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace ResourceBooking.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/resourcetypes")]
     [ApiController]
     public class ResourceTypeController : ControllerBase
     {
@@ -19,77 +22,136 @@ namespace ResourceBooking.Controllers
             _resourceTypeRepository = resourceTypeRepository;
         }
 
+        // GET: api/resourcetypes
         [HttpGet]
-        public async Task<IActionResult> GetResourceTypes()
+        [SwaggerOperation(Summary = "List of Resource Types")]
+        public async Task<ActionResult<IEnumerable<ResourceTypeDto>>> GetResourceTypes()
         {
-            var resourceTypes = await _resourceTypeRepository.GetResourceTypesAsync();
-            var resourceTypesToReturn = resourceTypes.Select(rt => new ResourceTypeDto
+            try
             {
-                ResourceTypeId = rt.ResourceTypeId,
-                TypeName = rt.TypeName
-            });
-            return Ok(resourceTypesToReturn);
+                var resourceTypes = await _resourceTypeRepository.GetResourceTypesAsync();
+                var resourceTypeDtos = resourceTypes.Select(rt => new ResourceTypeDto
+                {
+                    ResourceTypeId = rt.ResourceTypeId,
+                    TypeName = rt.TypeName
+                }).ToList();
+
+                return Ok(resourceTypeDtos);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
 
-        [HttpGet("{id}", Name = "GetResourceType")]
-        public async Task<IActionResult> GetResourceType(int id)
+        // GET: api/resourcetypes/{id}
+        [HttpGet("{id}")]
+        [SwaggerOperation(Summary = "Get Resource Type by ID")]
+        public async Task<ActionResult<ResourceTypeDto>> GetResourceType(int id)
         {
-            var resourceType = await _resourceTypeRepository.GetResourceTypeByIdAsync(id);
-            if (resourceType == null)
-                return NotFound();
-
-            var resourceTypeToReturn = new ResourceTypeDto
+            try
             {
-                ResourceTypeId = resourceType.ResourceTypeId,
-                TypeName = resourceType.TypeName
-            };
+                var resourceType = await _resourceTypeRepository.GetResourceTypeByIdAsync(id);
 
-            return Ok(resourceTypeToReturn);
+                if (resourceType == null)
+                {
+                    return NotFound("Resource Type not found.");
+                }
+
+                var resourceTypeDto = new ResourceTypeDto
+                {
+                    ResourceTypeId = resourceType.ResourceTypeId,
+                    TypeName = resourceType.TypeName
+                };
+
+                return Ok(resourceTypeDto);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
 
+        // POST: api/resourcetypes
         [HttpPost]
-        public async Task<IActionResult> CreateResourceType(ResourceTypeForCreationDto resourceTypeForCreation)
+        [SwaggerOperation(Summary = "Add Resource Type")]
+        public async Task<ActionResult<ResourceTypeDto>> AddResourceType(ResourceTypeForCreationDto resourceTypeForCreationDto)
         {
-            var resourceType = new ResourceType
+            try
             {
-                TypeName = resourceTypeForCreation.TypeName
-            };
+                var resourceType = new ResourceType
+                {
+                    TypeName = resourceTypeForCreationDto.TypeName
+                };
 
-            await _resourceTypeRepository.AddResourceTypeAsync(resourceType);
-            if (await _resourceTypeRepository.SaveAsync())
-                return CreatedAtRoute("GetResourceType", new { id = resourceType.ResourceTypeId }, resourceType);
+                var createdResourceType = await _resourceTypeRepository.CreateResourceTypeAsync(resourceType);
 
-            return BadRequest("Error creating resource type");
+                var resourceTypeDto = new ResourceTypeDto
+                {
+                    ResourceTypeId = createdResourceType.ResourceTypeId,
+                    TypeName = createdResourceType.TypeName
+                };
+
+                return CreatedAtAction(nameof(GetResourceType), new { id = createdResourceType.ResourceTypeId }, resourceTypeDto);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateResourceType(int id, ResourceTypeForCreationDto resourceTypeForUpdate)
+        // PUT: api/resourcetypes
+        [HttpPut]
+        [SwaggerOperation(Summary = "Update Resource Type")]
+        public async Task<ActionResult<ResourceTypeDto>> UpdateResourceType(ResourceTypeForUpdateDto resourceTypeForUpdateDto)
         {
-            var resourceTypeFromRepo = await _resourceTypeRepository.GetResourceTypeByIdAsync(id);
-            if (resourceTypeFromRepo == null)
-                return NotFound();
+            try
+            {
+                var resourceType = await _resourceTypeRepository.GetResourceTypeByIdAsync(resourceTypeForUpdateDto.ResourceTypeId);
 
-            resourceTypeFromRepo.TypeName = resourceTypeForUpdate.TypeName;
+                if (resourceType == null)
+                {
+                    return NotFound("Resource Type not found.");
+                }
 
-            await _resourceTypeRepository.UpdateResourceTypeAsync(resourceTypeFromRepo);
-            if (await _resourceTypeRepository.SaveAsync())
-                return NoContent();
+                resourceType.TypeName = resourceTypeForUpdateDto.TypeName;
 
-            return BadRequest("Error updating resource type");
+                var updatedResourceType = await _resourceTypeRepository.UpdateResourceTypeAsync(resourceType);
+
+                var resourceTypeDto = new ResourceTypeDto
+                {
+                    ResourceTypeId = updatedResourceType.ResourceTypeId,
+                    TypeName = updatedResourceType.TypeName
+                };
+
+                return Ok(resourceTypeDto);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
 
+        // DELETE: api/resourcetypes/{id}
         [HttpDelete("{id}")]
+        [SwaggerOperation(Summary = "Delete Resource Type")]
         public async Task<IActionResult> DeleteResourceType(int id)
         {
-            var resourceTypeFromRepo = await _resourceTypeRepository.GetResourceTypeByIdAsync(id);
-            if (resourceTypeFromRepo == null)
-                return NotFound();
+            try
+            {
+                var success = await _resourceTypeRepository.DeleteResourceTypeAsync(id);
 
-            await _resourceTypeRepository.DeleteResourceTypeAsync(resourceTypeFromRepo);
-            if (await _resourceTypeRepository.SaveAsync())
+                if (!success)
+                {
+                    return NotFound("Resource Type not found.");
+                }
+
                 return NoContent();
-
-            return BadRequest("Error deleting resource type");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
     }
 }

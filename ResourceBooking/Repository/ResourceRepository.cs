@@ -1,8 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using ResourceBooking.Data;
-using ResourceBooking.Interfaces;
 using ResourceBooking.Models;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace ResourceBooking.Repositories
@@ -21,34 +22,48 @@ namespace ResourceBooking.Repositories
             return await _context.Resources.Include(r => r.ResourceType).ToListAsync();
         }
 
-        public async Task<Resource> GetResourceByIdAsync(int id)
+        public async Task<Resource> GetResourceByIdAsync(int resourceId)
         {
-            return await _context.Resources.Include(r => r.ResourceType).SingleOrDefaultAsync(r => r.ResourceId == id);
+            return await _context.Resources.Include(r => r.ResourceType).FirstOrDefaultAsync(r => r.ResourceId == resourceId);
         }
 
-        public async Task<bool> ResourceExistsAsync(int id)
+        public async Task<Resource> CreateResourceAsync(Resource resource)
         {
-            return await _context.Resources.AnyAsync(r => r.ResourceId == id);
+            _context.Resources.Add(resource);
+            await _context.SaveChangesAsync();
+            return resource;
         }
 
-        public async Task AddResourceAsync(Resource resource)
+        public async Task<Resource> UpdateResourceAsync(Resource resource)
         {
-            await _context.Resources.AddAsync(resource);
+            _context.Resources.Update(resource);
+            await _context.SaveChangesAsync();
+            return resource;
         }
 
-        public async Task UpdateResourceAsync(Resource resource)
+        public async Task<bool> DeleteResourceAsync(int resourceId)
         {
-            _context.Entry(resource).State = EntityState.Modified;
-        }
+            var resource = await _context.Resources.FindAsync(resourceId);
+            if (resource == null)
+            {
+                return false;
+            }
 
-        public async Task DeleteResourceAsync(Resource resource)
-        {
             _context.Resources.Remove(resource);
+            await _context.SaveChangesAsync();
+            return true;
         }
 
-        public async Task<bool> SaveAsync()
+        public async Task<IEnumerable<Resource>> GetAvailableResourcesAsync(DateTime startDate, DateTime endDate, int? resourceId = null)
         {
-            return await _context.SaveChangesAsync() > 0;
+            var query = _context.Resources.Include(r => r.Bookings).AsQueryable();
+
+            if (resourceId.HasValue)
+            {
+                query = query.Where(r => r.ResourceId == resourceId);
+            }
+
+            return await query.Where(r => !r.Bookings.Any(b => b.StartDate < endDate && b.EndDate > startDate)).ToListAsync();
         }
     }
 }

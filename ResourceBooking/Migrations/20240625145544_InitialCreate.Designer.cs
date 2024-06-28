@@ -12,7 +12,7 @@ using ResourceBooking.Data;
 namespace ResourceBooking.Migrations
 {
     [DbContext(typeof(DataContext))]
-    [Migration("20240617102826_InitialCreate")]
+    [Migration("20240625145544_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -66,15 +66,12 @@ namespace ResourceBooking.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("ReourceTypeId")
-                        .HasColumnType("int");
-
                     b.Property<int>("ResourceTypeId")
                         .HasColumnType("int");
 
                     b.HasKey("ResourceId");
 
-                    b.HasIndex("ReourceTypeId");
+                    b.HasIndex("ResourceTypeId");
 
                     b.ToTable("ResourceInfo");
                 });
@@ -153,8 +150,8 @@ namespace ResourceBooking.Migrations
             modelBuilder.Entity("ResourceBooking.Models.Resource", b =>
                 {
                     b.HasOne("ResourceBooking.Models.ResourceType", "ResourceType")
-                        .WithMany()
-                        .HasForeignKey("ReourceTypeId")
+                        .WithMany("Resources")
+                        .HasForeignKey("ResourceTypeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -164,6 +161,11 @@ namespace ResourceBooking.Migrations
             modelBuilder.Entity("ResourceBooking.Models.Resource", b =>
                 {
                     b.Navigation("Bookings");
+                });
+
+            modelBuilder.Entity("ResourceBooking.Models.ResourceType", b =>
+                {
+                    b.Navigation("Resources");
                 });
 
             modelBuilder.Entity("ResourceBooking.Models.User", b =>

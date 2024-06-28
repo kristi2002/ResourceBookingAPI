@@ -47,15 +47,14 @@ namespace ResourceBooking.Migrations
                     ResourceId = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    ResourceTypeId = table.Column<int>(type: "int", nullable: false),
-                    ReourceTypeId = table.Column<int>(type: "int", nullable: false)
+                    ResourceTypeId = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ResourceInfo", x => x.ResourceId);
                     table.ForeignKey(
-                        name: "FK_ResourceInfo_ResourceTypeInfo_ReourceTypeId",
-                        column: x => x.ReourceTypeId,
+                        name: "FK_ResourceInfo_ResourceTypeInfo_ResourceTypeId",
+                        column: x => x.ResourceTypeId,
                         principalTable: "ResourceTypeInfo",
                         principalColumn: "ResourceTypeId",
                         onDelete: ReferentialAction.Cascade);
@@ -90,9 +89,9 @@ namespace ResourceBooking.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_ResourceInfo_ReourceTypeId",
+                name: "IX_ResourceInfo_ResourceTypeId",
                 table: "ResourceInfo",
-                column: "ReourceTypeId");
+                column: "ResourceTypeId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ResourceTypeInfo_TypeName",

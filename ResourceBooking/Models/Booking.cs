@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ResourceBooking.Models
 {
-    [Table("StudentInfo")]
+    [Table("BookingInfo")]
     public class Booking
     {
         [Key]

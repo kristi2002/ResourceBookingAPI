@@ -1,101 +1,163 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using ResourceBooking.Dto;
 using ResourceBooking.Dtos;
-using ResourceBooking.Interfaces;
 using ResourceBooking.Models;
+using ResourceBooking.Repositories;
+using Swashbuckle.AspNetCore.Annotations;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace ResourceBooking.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/resources")]
     [ApiController]
     public class ResourceController : ControllerBase
     {
         private readonly IResourceRepository _resourceRepository;
-        private readonly IResourceTypeRepository _resourceTypeRepository;
 
-        public ResourceController(IResourceRepository resourceRepository, IResourceTypeRepository resourceTypeRepository)
+        public ResourceController(IResourceRepository resourceRepository)
         {
             _resourceRepository = resourceRepository;
-            _resourceTypeRepository = resourceTypeRepository;
         }
 
+        // GET: api/resources
         [HttpGet]
-        public async Task<IActionResult> GetResources()
+        [SwaggerOperation(Summary = "List of Resources")]
+        public async Task<ActionResult<IEnumerable<ResourceDto>>> GetResources()
         {
-            var resources = await _resourceRepository.GetResourcesAsync();
-            var resourcesToReturn = resources.Select(r => new ResourceDto
+            try
             {
-                ResourceId = r.ResourceId,
-                Nome = r.Name,
-                ResourceTypeName = r.ResourceType.TypeName
-            });
-            return Ok(resourcesToReturn);
+                var resources = await _resourceRepository.GetResourcesAsync();
+                var resourceDtos = resources.Select(r => new ResourceDto
+                {
+                    ResourceId = r.ResourceId,
+                    Name = r.Name,
+                    ResourceTypeName = r.ResourceType.TypeName
+                }).ToList();
+
+                return Ok(resourceDtos);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
 
-        [HttpGet("{id}", Name = "GetResource")]
-        public async Task<IActionResult> GetResource(int id)
+        // GET: api/resources/{id}
+        [HttpGet("{id}")]
+        [SwaggerOperation(Summary = "Get Resource by ID")]
+        public async Task<ActionResult<ResourceDto>> GetResource(int id)
         {
-            var resource = await _resourceRepository.GetResourceByIdAsync(id);
-            if (resource == null)
-                return NotFound();
-
-            var resourceToReturn = new ResourceDto
+            try
             {
-                ResourceId = resource.ResourceId,
-                Nome = resource.Name,
-                ResourceTypeName = resource.ResourceType.TypeName
-            };
+                var resource = await _resourceRepository.GetResourceByIdAsync(id);
 
-            return Ok(resourceToReturn);
+                if (resource == null)
+                {
+                    return NotFound("Resource not found.");
+                }
+
+                var resourceDto = new ResourceDto
+                {
+                    ResourceId = resource.ResourceId,
+                    Name = resource.Name,
+                    ResourceTypeName = resource.ResourceType.TypeName
+                };
+
+                return Ok(resourceDto);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
 
+        // POST: api/resources
         [HttpPost]
-        public async Task<IActionResult> CreateResource(ResourceForCreationDto resourceForCreation)
+        [SwaggerOperation(Summary = "Add Resource")]
+        public async Task<ActionResult<ResourceDto>> AddResource(ResourceForCreationDto resourceForCreationDto)
         {
-            var resource = new Resource
+            try
             {
-                Name = resourceForCreation.Nome,
-                ResourceTypeId = resourceForCreation.ResourceTypeId
-            };
+                var resource = new Resource
+                {
+                    Name = resourceForCreationDto.Name,
+                    ResourceTypeId = resourceForCreationDto.ResourceTypeId
+                };
 
-            await _resourceRepository.AddResourceAsync(resource);
-            if (await _resourceRepository.SaveAsync())
-                return CreatedAtRoute("GetResource", new { id = resource.ResourceId }, resource);
+                var createdResource = await _resourceRepository.CreateResourceAsync(resource);
 
-            return BadRequest("Error creating resource");
+                var resourceDto = new ResourceDto
+                {
+                    ResourceId = createdResource.ResourceId,
+                    Name = createdResource.Name,
+                    ResourceTypeName = createdResource.ResourceType.TypeName
+                };
+
+                return CreatedAtAction(nameof(GetResource), new { id = createdResource.ResourceId }, resourceDto);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateResource(int id, ResourceForCreationDto resourceForUpdate)
+        // PUT: api/resources
+        [HttpPut]
+        [SwaggerOperation(Summary = "Update Resource")]
+        public async Task<ActionResult<ResourceDto>> UpdateResource(ResourceForUpdateDto resourceForUpdateDto)
         {
-            var resourceFromRepo = await _resourceRepository.GetResourceByIdAsync(id);
-            if (resourceFromRepo == null)
-                return NotFound();
+            try
+            {
+                var resource = await _resourceRepository.GetResourceByIdAsync(resourceForUpdateDto.ResourceId);
 
-            resourceFromRepo.Name = resourceForUpdate.Nome;
-            resourceFromRepo.ResourceTypeId = resourceForUpdate.ResourceTypeId;
+                if (resource == null)
+                {
+                    return NotFound("Resource not found.");
+                }
 
-            await _resourceRepository.UpdateResourceAsync(resourceFromRepo);
-            if (await _resourceRepository.SaveAsync())
-                return NoContent();
+                resource.Name = resourceForUpdateDto.Name;
+                resource.ResourceTypeId = resourceForUpdateDto.ResourceTypeId;
 
-            return BadRequest("Error updating resource");
+                var updatedResource = await _resourceRepository.UpdateResourceAsync(resource);
+
+                var resourceDto = new ResourceDto
+                {
+                    ResourceId = updatedResource.ResourceId,
+                    Name = updatedResource.Name,
+                    ResourceTypeName = updatedResource.ResourceType.TypeName
+                };
+
+                return Ok(resourceDto);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
 
+        // DELETE: api/resources/{id}
         [HttpDelete("{id}")]
+        [SwaggerOperation(Summary = "Delete Resource")]
         public async Task<IActionResult> DeleteResource(int id)
         {
-            var resourceFromRepo = await _resourceRepository.GetResourceByIdAsync(id);
-            if (resourceFromRepo == null)
-                return NotFound();
+            try
+            {
+                var success = await _resourceRepository.DeleteResourceAsync(id);
 
-            await _resourceRepository.DeleteResourceAsync(resourceFromRepo);
-            if (await _resourceRepository.SaveAsync())
+                if (!success)
+                {
+                    return NotFound("Resource not found.");
+                }
+
                 return NoContent();
-
-            return BadRequest("Error deleting resource");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
     }
 }

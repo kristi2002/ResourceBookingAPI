@@ -7,10 +7,9 @@ namespace ResourceBooking.Interfaces
     public interface IResourceTypeRepository
     {
         Task<IEnumerable<ResourceType>> GetResourceTypesAsync();
-        Task<ResourceType> GetResourceTypeByIdAsync(int id);
-        Task AddResourceTypeAsync(ResourceType resourceType);
-        Task UpdateResourceTypeAsync(ResourceType resourceType);
-        Task DeleteResourceTypeAsync(ResourceType resourceType);
-        Task<bool> SaveAsync();
+        Task<ResourceType> GetResourceTypeByIdAsync(int resourceTypeId);
+        Task<ResourceType> CreateResourceTypeAsync(ResourceType resourceType);
+        Task<ResourceType> UpdateResourceTypeAsync(ResourceType resourceType);
+        Task<bool> DeleteResourceTypeAsync(int resourceTypeId);
     }
 }

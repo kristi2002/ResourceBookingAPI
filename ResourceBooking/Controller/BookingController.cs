@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ResourceBooking.Data;
-using ResourceBooking.Dto;
 using ResourceBooking.Dtos;
 using ResourceBooking.Models;
 using Swashbuckle.AspNetCore.Annotations;
@@ -12,165 +11,256 @@ using System.Threading.Tasks;
 
 namespace ResourceBooking.Controllers
 {
-    [Route("api/users")]
+    [Route("api/bookings")]
     [ApiController]
-    public class UserController : ControllerBase
+    public class BookingController : ControllerBase
     {
         private readonly DataContext _context;
 
-        public UserController(DataContext context)
+        public BookingController(DataContext context)
         {
             _context = context;
         }
 
-        // GET: api/users
         [HttpGet]
-        [SwaggerOperation(Summary = "List of Users")]
-        public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers()
+        [SwaggerOperation(Summary = "List of Bookings")]
+        public async Task<ActionResult<IEnumerable<BookingDto>>> GetBookings()
         {
             try
             {
-                var users = await _context.Users
-                    .Select(u => new UserDto
-                    {
-                        UserId = u.UserId,
-                        Email = u.Email,
-                        Nome = u.Name,
-                        Cognome = u.LastName
-                    })
-                    .ToListAsync();
+                var bookings = await _context.Bookings.Select(b => new BookingDto
+                {
+                    BookingId = b.BookingId,
+                    ResourceId = b.ResourceId,
+                    UserId = b.UserId,
+                    DataInizio = b.StartDate,
+                    DataFine = b.EndDate
+                }).ToListAsync();
 
-                return Ok(users);
+                return Ok(bookings);
             }
             catch (Exception ex)
             {
+                // Log exception
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
 
-        // GET: api/users/{id}
         [HttpGet("{id}")]
-        [SwaggerOperation(Summary = "Get User by ID")]
-        public async Task<ActionResult<UserDto>> GetUser(int id)
+        [SwaggerOperation(Summary = "Get Booking by ID")]
+        public async Task<ActionResult<BookingDto>> GetBooking(int id)
         {
             try
             {
-                var user = await _context.Users.FindAsync(id);
+                var booking = await _context.Bookings.FindAsync(id);
 
-                if (user == null)
+                if (booking == null)
                 {
-                    return NotFound("User not found.");
+                    return NotFound("Booking not found.");
                 }
 
-                var userDto = new UserDto
+                var bookingDto = new BookingDto
                 {
-                    UserId = user.UserId,
-                    Email = user.Email,
-                    Nome = user.Name,
-                    Cognome = user.LastName
+                    BookingId = booking.BookingId,
+                    ResourceId = booking.ResourceId,
+                    UserId = booking.UserId,
+                    DataInizio = booking.StartDate,
+                    DataFine = booking.EndDate
                 };
 
-                return Ok(userDto);
+                return Ok(bookingDto);
             }
             catch (Exception ex)
             {
+                // Log exception
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
 
-        // POST: api/users
         [HttpPost]
-        [SwaggerOperation(Summary = "Add User")]
-        public async Task<ActionResult<UserDto>> AddUser(UserForCreationDto userForCreationDto)
+        [SwaggerOperation(Summary = "Add Booking")]
+        public async Task<ActionResult<BookingDto>> AddBooking(BookingForCreationDto bookingForCreationDto)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
             try
             {
-                var user = new User
+                // Check if the resource is available during the specified time interval
+                var overlappingBooking = await _context.Bookings
+                    .AnyAsync(b => b.ResourceId == bookingForCreationDto.ResourceId &&
+                                   ((b.StartDate < bookingForCreationDto.DataFine && b.EndDate > bookingForCreationDto.DataInizio)));
+
+                if (overlappingBooking)
                 {
-                    Email = userForCreationDto.Email,
-                    Name = userForCreationDto.Nome,
-                    LastName = userForCreationDto.Cognome,
-                    Password = userForCreationDto.Password // Note: Ensure to hash the password before saving in a real application
+                    return BadRequest("The resource is already booked during the specified time interval.");
+                }
+
+                var booking = new Booking
+                {
+                    ResourceId = bookingForCreationDto.ResourceId,
+                    UserId = bookingForCreationDto.UserId,
+                    StartDate = bookingForCreationDto.DataInizio,
+                    EndDate = bookingForCreationDto.DataFine
                 };
 
-                _context.Users.Add(user);
+                _context.Bookings.Add(booking);
                 await _context.SaveChangesAsync();
 
-                var userDto = new UserDto
+                var bookingDto = new BookingDto
                 {
-                    UserId = user.UserId,
-                    Email = user.Email,
-                    Nome = user.Name,
-                    Cognome = user.LastName
+                    BookingId = booking.BookingId,
+                    ResourceId = booking.ResourceId,
+                    UserId = booking.UserId,
+                    DataInizio = booking.StartDate,
+                    DataFine = booking.EndDate
                 };
 
-                return CreatedAtAction(nameof(GetUser), new { id = user.UserId }, userDto);
+                return CreatedAtAction(nameof(GetBooking), new { id = booking.BookingId }, bookingDto);
             }
             catch (Exception ex)
             {
+                // Log exception
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
 
-        // PUT: api/users
         [HttpPut]
-        [SwaggerOperation(Summary = "Update User")]
-        public async Task<ActionResult<UserDto>> UpdateUser(UserForUpdateDto userForUpdateDto)
+        [SwaggerOperation(Summary = "Update Booking")]
+        public async Task<ActionResult<BookingDto>> UpdateBooking(BookingDto bookingForUpdateDto)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
             try
             {
-                var user = await _context.Users.FindAsync(userForUpdateDto.UserId);
+                var booking = await _context.Bookings.FindAsync(bookingForUpdateDto.BookingId);
 
-                if (user == null)
+                if (booking == null)
                 {
-                    return NotFound("User not found.");
+                    return NotFound("Booking not found.");
                 }
 
-                user.Email = userForUpdateDto.Email;
-                user.Name = userForUpdateDto.Name;
-                user.LastName = userForUpdateDto.LastName;
-                user.Password = userForUpdateDto.Password; // Note: Ensure to hash the password before saving in a real application
+                // Check if the resource is available during the specified time interval for the update
+                var overlappingBooking = await _context.Bookings
+                    .AnyAsync(b => b.ResourceId == bookingForUpdateDto.ResourceId &&
+                                   b.BookingId != bookingForUpdateDto.BookingId &&
+                                   ((b.StartDate < bookingForUpdateDto.DataFine && b.EndDate > bookingForUpdateDto.DataInizio)));
 
-                _context.Users.Update(user);
+                if (overlappingBooking)
+                {
+                    return BadRequest("The resource is already booked during the specified time interval.");
+                }
+
+                booking.ResourceId = bookingForUpdateDto.ResourceId;
+                booking.UserId = bookingForUpdateDto.UserId;
+                booking.StartDate = bookingForUpdateDto.DataInizio;
+                booking.EndDate = bookingForUpdateDto.DataFine;
+
+                _context.Bookings.Update(booking);
                 await _context.SaveChangesAsync();
 
-                var userDto = new UserDto
+                var bookingDto = new BookingDto
                 {
-                    UserId = user.UserId,
-                    Email = user.Email,
-                    Nome = user.Name,
-                    Cognome = user.LastName
+                    BookingId = booking.BookingId,
+                    ResourceId = booking.ResourceId,
+                    UserId = booking.UserId,
+                    DataInizio = booking.StartDate,
+                    DataFine = booking.EndDate
                 };
 
-                return Ok(userDto);
+                return Ok(bookingDto);
             }
             catch (Exception ex)
             {
+                // Log exception
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
 
-        // DELETE: api/users/{id}
         [HttpDelete("{id}")]
-        [SwaggerOperation(Summary = "Delete User")]
-        public async Task<IActionResult> DeleteUser(int id)
+        [SwaggerOperation(Summary = "Delete Booking")]
+        public async Task<IActionResult> DeleteBooking(int id)
         {
             try
             {
-                var user = await _context.Users.FindAsync(id);
+                var booking = await _context.Bookings.FindAsync(id);
 
-                if (user == null)
+                if (booking == null)
                 {
-                    return NotFound("User not found.");
+                    return NotFound("Booking not found.");
                 }
 
-                _context.Users.Remove(user);
+                _context.Bookings.Remove(booking);
                 await _context.SaveChangesAsync();
 
                 return NoContent();
             }
             catch (Exception ex)
             {
+                // Log exception
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpGet("availability")]
+        [SwaggerOperation(Summary = "Search Availability with Pagination")]
+        public async Task<ActionResult<PaginatedResult<ResourceDto>>> SearchAvailability([FromQuery] AvailabilitySearchDto searchDto)
+        {
+            try
+            {
+                // Validate date range
+                if (searchDto.DataInizio >= searchDto.DataFine)
+                {
+                    return BadRequest("DataInizio must be earlier than DataFine.");
+                }
+
+                // Get booked resource IDs within the specified time interval
+                var bookedResourceIds = await _context.Bookings
+                    .Where(b => (b.StartDate < searchDto.DataFine && b.EndDate > searchDto.DataInizio) &&
+                                (!searchDto.CodiceRisorsa.HasValue || b.ResourceId == searchDto.CodiceRisorsa.Value))
+                    .Select(b => b.ResourceId)
+                    .Distinct()
+                    .ToListAsync();
+
+                // Get available resources that are not in the bookedResourceIds list
+                var availableResources = await _context.Resources
+                    .Where(r => !bookedResourceIds.Contains(r.ResourceId) &&
+                                (!searchDto.CodiceRisorsa.HasValue || r.ResourceId == searchDto.CodiceRisorsa.Value))
+                    .Skip((searchDto.Page - 1) * searchDto.PageSize)
+                    .Take(searchDto.PageSize)
+                    .Select(r => new ResourceDto
+                    {
+                        ResourceId = r.ResourceId,
+                        Name = r.Name,
+                        ResourceTypeName = r.ResourceType.TypeName
+                    })
+                    .ToListAsync();
+
+                // Get total count of available resources
+                var totalResources = await _context.Resources
+                    .Where(r => !bookedResourceIds.Contains(r.ResourceId) &&
+                                (!searchDto.CodiceRisorsa.HasValue || r.ResourceId == searchDto.CodiceRisorsa.Value))
+                    .CountAsync();
+
+                var paginatedResult = new PaginatedResult<ResourceDto>
+                {
+                    TotalResults = totalResources,
+                    TotalPages = (int)Math.Ceiling(totalResources / (double)searchDto.PageSize),
+                    CurrentPage = searchDto.Page,
+                    PageSize = searchDto.PageSize,
+                    Results = availableResources
+                };
+
+                return Ok(paginatedResult);
+            }
+            catch (Exception ex)
+            {
+                // Log exception
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }

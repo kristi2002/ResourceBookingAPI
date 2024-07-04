@@ -3,13 +3,13 @@ using ResourceBooking.Models;
 
 namespace ResourceBooking.Data
 {
-    //DataContext inheriting from DbContext
+    // DataContext inheriting from DbContext
     public class DataContext : DbContext
     {
         public DataContext(DbContextOptions<DataContext> options) : base(options)
         {
-            
         }
+
         public DbSet<User> Users { get; set; }
         public DbSet<Resource> Resources { get; set; }
         public DbSet<ResourceType> ResourceTypes { get; set; }
@@ -44,8 +44,6 @@ namespace ResourceBooking.Data
                 .IsUnique();
 
             base.OnModelCreating(modelBuilder);
-
         }
-       
     }
 }

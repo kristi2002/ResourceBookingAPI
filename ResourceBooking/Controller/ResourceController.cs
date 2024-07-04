@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Mvc;
 using ResourceBooking.Dto;
 using ResourceBooking.Dtos;
 using ResourceBooking.Models;
@@ -6,7 +7,6 @@ using ResourceBooking.Repositories;
 using Swashbuckle.AspNetCore.Annotations;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace ResourceBooking.Controllers
@@ -16,13 +16,15 @@ namespace ResourceBooking.Controllers
     public class ResourceController : ControllerBase
     {
         private readonly IResourceRepository _resourceRepository;
+        private readonly IMapper _mapper;
 
-        public ResourceController(IResourceRepository resourceRepository)
+        // Ensure there is only one constructor
+        public ResourceController(IResourceRepository resourceRepository, IMapper mapper)
         {
             _resourceRepository = resourceRepository;
+            _mapper = mapper;
         }
 
-        // GET: api/resources
         [HttpGet]
         [SwaggerOperation(Summary = "List of Resources")]
         public async Task<ActionResult<IEnumerable<ResourceDto>>> GetResources()
@@ -30,12 +32,7 @@ namespace ResourceBooking.Controllers
             try
             {
                 var resources = await _resourceRepository.GetResourcesAsync();
-                var resourceDtos = resources.Select(r => new ResourceDto
-                {
-                    ResourceId = r.ResourceId,
-                    Name = r.Name,
-                    ResourceTypeName = r.ResourceType.TypeName
-                }).ToList();
+                var resourceDtos = _mapper.Map<List<ResourceDto>>(resources);
 
                 return Ok(resourceDtos);
             }
@@ -45,7 +42,6 @@ namespace ResourceBooking.Controllers
             }
         }
 
-        // GET: api/resources/{id}
         [HttpGet("{id}")]
         [SwaggerOperation(Summary = "Get Resource by ID")]
         public async Task<ActionResult<ResourceDto>> GetResource(int id)
@@ -70,15 +66,20 @@ namespace ResourceBooking.Controllers
             }
             catch (Exception ex)
             {
+                // Log exception
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
 
-        // POST: api/resources
         [HttpPost]
         [SwaggerOperation(Summary = "Add Resource")]
         public async Task<ActionResult<ResourceDto>> AddResource(ResourceForCreationDto resourceForCreationDto)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
             try
             {
                 var resource = new Resource
@@ -93,22 +94,27 @@ namespace ResourceBooking.Controllers
                 {
                     ResourceId = createdResource.ResourceId,
                     Name = createdResource.Name,
-                    ResourceTypeName = createdResource.ResourceType.TypeName
+                    ResourceTypeName = createdResource.ResourceType?.TypeName // Use null-conditional operator
                 };
 
                 return CreatedAtAction(nameof(GetResource), new { id = createdResource.ResourceId }, resourceDto);
             }
             catch (Exception ex)
             {
+                // Log exception
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
 
-        // PUT: api/resources
         [HttpPut]
         [SwaggerOperation(Summary = "Update Resource")]
         public async Task<ActionResult<ResourceDto>> UpdateResource(ResourceForUpdateDto resourceForUpdateDto)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
             try
             {
                 var resource = await _resourceRepository.GetResourceByIdAsync(resourceForUpdateDto.ResourceId);
@@ -134,11 +140,11 @@ namespace ResourceBooking.Controllers
             }
             catch (Exception ex)
             {
+                // Log exception
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
 
-        // DELETE: api/resources/{id}
         [HttpDelete("{id}")]
         [SwaggerOperation(Summary = "Delete Resource")]
         public async Task<IActionResult> DeleteResource(int id)
@@ -156,6 +162,7 @@ namespace ResourceBooking.Controllers
             }
             catch (Exception ex)
             {
+                // Log exception
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }

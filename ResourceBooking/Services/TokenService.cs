@@ -10,31 +10,43 @@ namespace ResourceBooking.Services
 {
     public class TokenService
     {
-        private readonly IConfiguration _configuration;
+        private readonly IConfiguration _config;
 
-        public TokenService(IConfiguration configuration)
+        public TokenService(IConfiguration config)
         {
-            _configuration = configuration;
+            _config = config;
         }
 
         public string GenerateToken(User user)
         {
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]);
-            var tokenDescriptor = new SecurityTokenDescriptor
+            // Validate configuration settings
+            var key = _config["Jwt:Key"];
+            var issuer = _config["Jwt:Issuer"];
+            var expiryMinutes = _config.GetValue<int>("Jwt:ExpiryMinutes", 120);
+
+            if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(issuer))
             {
-                Subject = new ClaimsIdentity(new Claim[]
-                {
-                    new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
-                    new Claim(ClaimTypes.Email, user.Email)
-                }),
-                Expires = DateTime.UtcNow.AddHours(1),
-                Issuer = _configuration["Jwt:Issuer"],
-                Audience = _configuration["Jwt:Audience"],
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+                throw new ArgumentException("JWT configuration settings are missing or invalid.");
+            }
+
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
+            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Name, user.Name)
             };
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-            return tokenHandler.WriteToken(token);
+
+            var token = new JwtSecurityToken(
+                issuer,
+                issuer,
+                claims,
+                expires: DateTime.Now.AddMinutes(expiryMinutes),
+                signingCredentials: credentials);
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
         }
     }
 }

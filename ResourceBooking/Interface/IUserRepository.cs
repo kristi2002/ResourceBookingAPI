@@ -6,5 +6,6 @@ public interface IUserRepository
     Task<User> GetUserByIdAsync(int userId);
     Task<User> CreateUserAsync(User user);
     Task<User> AuthenticateUserAsync(string email, string password);
+    Task UpdateUserAsync(User user);
     Task DeleteUserAsync(User user);
 }

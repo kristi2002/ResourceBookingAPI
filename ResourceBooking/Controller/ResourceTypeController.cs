@@ -22,7 +22,6 @@ namespace ResourceBooking.Controllers
             _resourceTypeRepository = resourceTypeRepository;
         }
 
-        // GET: api/resourcetypes
         [HttpGet]
         [SwaggerOperation(Summary = "List of Resource Types")]
         public async Task<ActionResult<IEnumerable<ResourceTypeDto>>> GetResourceTypes()
@@ -40,11 +39,11 @@ namespace ResourceBooking.Controllers
             }
             catch (Exception ex)
             {
+                // Log exception
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
 
-        // GET: api/resourcetypes/{id}
         [HttpGet("{id}")]
         [SwaggerOperation(Summary = "Get Resource Type by ID")]
         public async Task<ActionResult<ResourceTypeDto>> GetResourceType(int id)
@@ -68,15 +67,20 @@ namespace ResourceBooking.Controllers
             }
             catch (Exception ex)
             {
+                // Log exception
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
 
-        // POST: api/resourcetypes
         [HttpPost]
         [SwaggerOperation(Summary = "Add Resource Type")]
         public async Task<ActionResult<ResourceTypeDto>> AddResourceType(ResourceTypeForCreationDto resourceTypeForCreationDto)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
             try
             {
                 var resourceType = new ResourceType
@@ -96,15 +100,20 @@ namespace ResourceBooking.Controllers
             }
             catch (Exception ex)
             {
+                // Log exception
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
 
-        // PUT: api/resourcetypes
         [HttpPut]
         [SwaggerOperation(Summary = "Update Resource Type")]
         public async Task<ActionResult<ResourceTypeDto>> UpdateResourceType(ResourceTypeForUpdateDto resourceTypeForUpdateDto)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
             try
             {
                 var resourceType = await _resourceTypeRepository.GetResourceTypeByIdAsync(resourceTypeForUpdateDto.ResourceTypeId);
@@ -128,11 +137,11 @@ namespace ResourceBooking.Controllers
             }
             catch (Exception ex)
             {
+                // Log exception
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
 
-        // DELETE: api/resourcetypes/{id}
         [HttpDelete("{id}")]
         [SwaggerOperation(Summary = "Delete Resource Type")]
         public async Task<IActionResult> DeleteResourceType(int id)
@@ -150,6 +159,7 @@ namespace ResourceBooking.Controllers
             }
             catch (Exception ex)
             {
+                // Log exception
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }

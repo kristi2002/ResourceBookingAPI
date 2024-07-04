@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
+using ResourceBooking.Dtos;
 using ResourceBooking.Models;
 
 namespace ResourceBooking.Interfaces
@@ -11,5 +12,6 @@ namespace ResourceBooking.Interfaces
         Task<Booking> CreateBookingAsync(Booking booking);
         Task<Booking> UpdateBookingAsync(Booking booking);
         Task<bool> DeleteBookingAsync(int bookingId);
+       
     }
 }

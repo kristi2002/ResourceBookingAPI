@@ -1,13 +1,14 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using ResourceBooking;
+using Microsoft.Extensions.DependencyInjection;
 using ResourceBooking.Data;
 using ResourceBooking.Helpers;
 using ResourceBooking.Interfaces;
 using ResourceBooking.Repositories;
-using ResourceBooking.Services; // Make sure to include this using directive
+using ResourceBooking.Services;
+using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using ResourceBooking;
 
 internal class Program
 {
@@ -30,7 +31,7 @@ internal class Program
         builder.Services.AddScoped<IResourceTypeRepository, ResourceTypeRepository>();
 
         // Register TokenService
-        builder.Services.AddSingleton<TokenService>(); // Register TokenService
+        builder.Services.AddSingleton<TokenService>();
 
         // Register AutoMapper
         builder.Services.AddAutoMapper(typeof(MappingProfiles));
@@ -39,13 +40,21 @@ internal class Program
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
 
-        //Creating the DbContext to connect with the database
+        // Creating the DbContext to connect with the database
         builder.Services.AddDbContext<DataContext>(options =>
         {
             options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
         });
 
-        //Configure the JWT authentication
+        // Configure the JWT authentication
+        var jwtKey = builder.Configuration["Jwt:Key"];
+        var jwtIssuer = builder.Configuration["Jwt:Issuer"];
+
+        if (string.IsNullOrEmpty(jwtKey) || string.IsNullOrEmpty(jwtIssuer))
+        {
+            throw new ArgumentException("JWT configuration settings are missing or invalid.");
+        }
+
         builder.Services.AddAuthentication(options =>
         {
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -60,11 +69,13 @@ internal class Program
                 ValidateAudience = true,
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
-                ValidIssuer = builder.Configuration["Jwt:Issuer"],
-                ValidAudience = builder.Configuration["Jwt:Issuer"],
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+                ValidIssuer = jwtIssuer,
+                ValidAudience = jwtIssuer,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
             };
         });
+
+        builder.Services.AddAuthorization();
 
         var app = builder.Build();
 
@@ -101,3 +112,4 @@ internal class Program
         app.Run();
     }
 }
+

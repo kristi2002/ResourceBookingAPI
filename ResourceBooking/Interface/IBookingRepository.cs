@@ -12,6 +12,7 @@ namespace ResourceBooking.Interfaces
         Task<Booking> CreateBookingAsync(Booking booking);
         Task<Booking> UpdateBookingAsync(Booking booking);
         Task<bool> DeleteBookingAsync(int bookingId);
-       
+        Task<bool> IsResourceBookedAsync(int resourceId, DateTime startDate, DateTime endDate);
+        Task<PaginatedResult<Resource>> GetAvailableResourcesAsync(DateTime startDate, DateTime endDate, int? resourceId, int page, int pageSize);
     }
 }

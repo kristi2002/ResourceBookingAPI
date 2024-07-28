@@ -17,28 +17,28 @@ internal class Program
         var builder = WebApplication.CreateBuilder(args);
 
         // Add services to the container.
-        builder.Services.AddControllers();
-        builder.Services.AddTransient<Seed>();
-        builder.Services.AddSwaggerGen(c =>
+        builder.Services.AddControllers(); //to handle HTTP request and return responses
+        builder.Services.AddTransient<Seed>(); //to create a service that lives for the duration of a single HTTP request
+        builder.Services.AddSwaggerGen(c =>  //to generate Swagger documentation and the lamda expression is used to enable annotations
         {
             c.EnableAnnotations();
         });
 
         // Register repositories
-        builder.Services.AddScoped<IBookingRepository, BookingRepository>();
+        builder.Services.AddScoped<IBookingRepository, BookingRepository>(); //a new instance is created for each request, but the same instance is used throught the request
         builder.Services.AddScoped<IUserRepository, UserRepository>();
         builder.Services.AddScoped<IResourceRepository, ResourceRepository>();
         builder.Services.AddScoped<IResourceTypeRepository, ResourceTypeRepository>();
 
         // Register TokenService
-        builder.Services.AddSingleton<TokenService>();
+        builder.Services.AddSingleton<TokenService>(); //the same instance is shared throughout the applications lifetime
 
         // Register AutoMapper
-        builder.Services.AddAutoMapper(typeof(MappingProfiles));
+        builder.Services.AddAutoMapper(typeof(MappingProfiles)); //setting up mappings between different data transfer objects (DTOs) and models
 
         // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-        builder.Services.AddEndpointsApiExplorer();
-        builder.Services.AddSwaggerGen();
+        builder.Services.AddEndpointsApiExplorer(); // Registers services to generate metadata for minimal APIs, aiding in the creation of API documentation.
+        builder.Services.AddSwaggerGen(); //Registers the Swagger generator, enabling the creation of interactive API documentation.
 
         // Creating the DbContext to connect with the database
         builder.Services.AddDbContext<DataContext>(options =>
@@ -47,7 +47,7 @@ internal class Program
         });
 
         // Configure the JWT authentication
-        var jwtKey = builder.Configuration["Jwt:Key"];
+        var jwtKey = builder.Configuration["Jwt:Key"]; //they retrieve the key and issuer from the configuration file json
         var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 
         if (string.IsNullOrEmpty(jwtKey) || string.IsNullOrEmpty(jwtIssuer))
@@ -57,27 +57,27 @@ internal class Program
 
         builder.Services.AddAuthentication(options =>
         {
-            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme; //sets the default authentication scheme to JWT
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme; //sets the default challenge scheme to JWT
+            options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme; //sets the default authentication scheme to JWT
         })
         .AddJwtBearer(options =>
         {
             options.TokenValidationParameters = new TokenValidationParameters
             {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                ValidIssuer = jwtIssuer,
-                ValidAudience = jwtIssuer,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+                ValidateIssuer = true, //ensures that the token was issued by a trusted authorization server
+                ValidateAudience = true, // audience is valid  
+                ValidateLifetime = true, // checks if the token is expired
+                ValidateIssuerSigningKey = true, // checks if the signing key is valid
+                ValidIssuer = jwtIssuer, // sets the issuer
+                ValidAudience = jwtIssuer, // sets the audience
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)) // sets the key for validating the tokens signature
             };
         });
 
-        builder.Services.AddAuthorization();
+        builder.Services.AddAuthorization(); //adds authorization services to the specified IServiceCollection
 
-        var app = builder.Build();
+        var app = builder.Build(); //creates an instace of the WebApplication class 
 
        
         // Seed the database if the argument is provided
@@ -99,18 +99,18 @@ internal class Program
 
        
         // Configure the HTTP request pipeline.
-        if (app.Environment.IsDevelopment())
+        if (app.Environment.IsDevelopment()) //checks if the application is running in the development environment
         {
             app.UseSwagger();
             app.UseSwaggerUI();
         }
 
-        app.UseHttpsRedirection();
+        app.UseHttpsRedirection(); //encryts the data sent between the client and the server
 
-        app.UseAuthentication();
-        app.UseAuthorization();
+        app.UseAuthentication(); // authenticates the users based on the authentication scheme
+        app.UseAuthorization(); // checks if the users have the necessary permissions to access the resources
 
-        app.MapControllers();
+        app.MapControllers(); //maps the controllers to the application
 
         app.Run();
     }

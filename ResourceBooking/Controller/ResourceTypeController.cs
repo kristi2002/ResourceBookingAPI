@@ -1,8 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Mvc;
 using ResourceBooking.Dto;
 using ResourceBooking.Dtos;
 using ResourceBooking.Interfaces;
 using ResourceBooking.Models;
+using ResourceBooking.Repositories;
 using Swashbuckle.AspNetCore.Annotations;
 using System;
 using System.Collections.Generic;
@@ -16,6 +18,7 @@ namespace ResourceBooking.Controllers
     public class ResourceTypeController : ControllerBase
     {
         private readonly IResourceTypeRepository _resourceTypeRepository;
+        private readonly IMapper _mapper;
 
         public ResourceTypeController(IResourceTypeRepository resourceTypeRepository)
         {

@@ -79,12 +79,14 @@ internal class Program
 
         var app = builder.Build();
 
+       
         // Seed the database if the argument is provided
         if (args.Length == 1 && args[0].ToLower() == "seeddata")
         {
             SeedData(app);
         }
 
+       
         // Seed the database.
         void SeedData(IHost app)
         {
@@ -95,6 +97,7 @@ internal class Program
             }
         }
 
+       
         // Configure the HTTP request pipeline.
         if (app.Environment.IsDevelopment())
         {
@@ -112,4 +115,3 @@ internal class Program
         app.Run();
     }
 }
-
